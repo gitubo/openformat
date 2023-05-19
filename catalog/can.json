@@ -1,0 +1,165 @@
+{
+	"name": "can",
+	"structure": [
+		{
+			"name": "start_of_frame",
+			"bit_length": 1,
+			"type": "unsigned integer",
+			"constraints": {
+				"minimum": 0,
+				"maximum": 0
+			}
+		},
+		{
+			"name": "identifier",
+			"bit_length": 11,
+			"type": "unsigned integer"
+		},
+		{
+			"name": "RTR",
+			"bit_length": 1,
+			"type": "unsigned integer"
+		},
+		{
+			"name": "IDE",
+			"bit_length": 1,
+			"type": "unsigned integer",
+			"routing":[
+				[0, "/definitions/standard"],
+				[1, "/definitions/extended"]
+			]				
+		}
+		
+	],
+	"definitions":{
+		"standard":{
+			"name": "standard",
+			"type": "structure",
+			"flatten_structure": true,
+			"structure": [
+				{
+					"name": "Reserved",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "DLC",
+					"bit_length": 4,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "data",
+					"bit_length": 8,
+					"type": "unsigned integer",
+					"size": "/DLC"
+				},
+				{
+					"name": "CRC",
+					"bit_length": 15,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "CRC_delimiter",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "ACK",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "ACK_delimiter",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "EOF",
+					"bit_length": 7,
+					"type": "unsigned integer"
+				}
+			]
+		},
+		"extended":{
+			"name": "extended",
+			"type": "structure",
+			"flatten_structure": true,
+			"structure": [
+				{
+					"name": "extended_identifier",
+					"bit_length": 18,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "RTR",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "Reserved0",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "Reserved1",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "DLC",
+					"bit_length": 4,
+					"type": "unsigned integer"
+				},				
+				{
+					"name": "data",
+					"bit_length": 8,
+					"type": "unsigned integer",
+					"size": "/DLC"
+				},
+				{
+					"name": "CRC",
+					"bit_length": 15,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "CRC_delimiter",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "ACK",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "ACK_delimiter",
+					"bit_length": 1,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "EOF",
+					"bit_length": 7,
+					"type": "unsigned integer"
+				}
+			]
+		}
+	},
+	"transformations":[
+		{
+			"description": "Generate 29bits identifier",
+			"elaboration": "post",
+			"tasks": [
+				{
+					"command": "concatenate",
+					"arguments": ["/identifier", "/identifier", "/extended_identifier"]
+				},
+				{
+					"command": "remove",
+					"arguments": ["/extended_identifier"]
+				}
+			],
+			"error": "ignore"
+		}
+	]
+}
+

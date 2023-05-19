@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package interface;
+
+service service {
+  rpc toJson (toJsonRequest) returns (toJsonResponse);
+  rpc toBits (toBitsRequest) returns (toBitsResponse);
+}
+
+message toJsonRequest {
+  string message_base64 = 1;
+  string message_type = 2;
+}
+
+message toJsonResponse {
+  string message_json = 1;
+  string message_type = 2;
+  int32 response_status = 3;
+  string response_message = 4;
+}
+
+message toBitsRequest {
+  string message_json = 1;
+  string message_type = 2;
+}
+
+message toBitsResponse {
+  string message_byte64 = 1;
+  string message_type = 2;
+  int32 response_status = 3;
+  string response_message = 4;
+}

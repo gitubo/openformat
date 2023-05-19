@@ -1,0 +1,358 @@
+#pragma once
+
+#include <cstring>
+#include <string>
+#include <iostream>
+#include <algorithm>
+#include <sstream>
+#include <stdexcept>
+
+
+
+class BitStream {
+
+public:
+
+    BitStream(const std::string& base64_str, const std::string& type_) : type(type_){
+        offset = 0;
+        data = nullptr;
+        lengthInBytes = base64_decode(base64_str, data);
+        length = lengthInBytes * 8;
+
+        if(data==nullptr){
+            std::cerr << "ATTENZIONE errore nell'allocazione dello spazio" << std::endl;
+        }
+        if(lengthInBytes==0){
+            std::cerr << "Passed base64 string generated no output" << std::endl;
+            if(data != nullptr){
+                free(data);            
+                data = nullptr;
+            }        
+        }
+    }
+
+    BitStream(const unsigned char* src, size_t length_, const std::string& type_) : type(type_){
+        if(length_==0){
+            std::cerr << "Passed length is zero" << std::endl;
+            data = nullptr;
+            throw std::invalid_argument("Trying to create a zero length bit stream");
+        }
+        offset = 0;
+        length = length_;
+        lengthInBytes = (length + 7) >> 3;  // Allocate at least 1 byte
+
+        data = static_cast<unsigned char*>(calloc(lengthInBytes, sizeof(unsigned char)));
+        if(data==nullptr){
+            std::cerr << "ATTENZIONE errore nell'allocazione dello spazio" << std::endl;
+        }
+        memcpy(data, src, lengthInBytes);
+    }
+
+    ~BitStream() {
+        if(data != nullptr){
+            free(data);            
+            data = nullptr;
+        }
+    }
+
+    BitStream consume(int length_) {
+
+        if(offset + length_ > length){
+            throw std::length_error("Trying to access more bits than provided: current offset is <" + 
+                                    std::to_string(offset) + ">, bits to be consumed are <" +
+                                    std::to_string(length_) + ">, total amount of bits is <" + std::to_string(length) + ">");
+        }
+
+        int byte_offset = offset >> 3;
+        int bit_offset = offset % 8;
+        size_t num_blocks = (length_ + bit_offset + 7) >> 3;
+        unsigned char result[num_blocks];
+
+        //cut the relevant part of the stream
+        int bits_to_extract = length_;
+        for(int i = 0; i < num_blocks && bits_to_extract > 0; i++) { 
+            int bits_remaining = bits_to_extract + bit_offset > 8 ? 8 - bit_offset : bits_to_extract;
+            unsigned short mask = ((1 << bits_remaining) - 1) << (8-bits_remaining-bit_offset);
+            unsigned char extracted_bits = (data[byte_offset] & mask) >> 8-bits_remaining-bit_offset;
+            result[i] = extracted_bits;
+            bits_to_extract -= bits_remaining;
+            byte_offset++;
+            bit_offset = 0;
+        }
+
+        unsigned int alignment = (length_ + offset) % 8;
+        if(offset % 8 || alignment){
+            //align all the bytes to the right (the first one is already aligned)
+            unsigned short bits_remaining = 8 - alignment;
+            unsigned short mask = ((1 << bits_remaining) - 1);
+            for(int i = num_blocks-1-1; i >= 0; i--){
+                unsigned char carry = (result[i] & mask); 
+                result[i] = result[i] >> bits_remaining;
+                result[i+1] = result[i+1] | (carry << alignment);
+            }
+        }
+
+        BitStream bt;
+        size_t real_num_blocks = (length_ + 7) >> 3;
+        if(real_num_blocks == num_blocks){
+            bt.setBitStream(result, length_, "");
+        } else {
+            //cut not needed bytes
+            unsigned char real_result[real_num_blocks];
+            for(int i = real_num_blocks-1; i >= 0; i--){
+                unsigned int index = i + (num_blocks-real_num_blocks);
+                real_result[i] = result[index];
+            }         
+            bt.setBitStream(real_result, length_, "");            
+        }
+        offset += length_;
+        return bt;
+    }
+
+    BitStream* shift(int n) { 
+        offset += n;
+        return this;
+    }
+
+    BitStream* reset() {
+        offset = 0;
+        return this;
+    }
+
+    int to_int(size_t bits = 8){
+        int8_t value[8];
+        if(bits<=8){ bits=8; }
+        else if(bits<=16){ bits=16; }
+        else if(bits<=32){ bits=32; }
+        else if(bits<=64){ bits=64; }
+        else { std::cout << "Unsupported number of bits for integer " << bits << std::endl; }
+        int mult = bits >> 3;
+        std::memcpy(value, data, mult*sizeof(int8_t));
+        int result = 0;
+        ///???BIG ENDIAN LITTLE ENDIAN
+//        for (int i = 0; i < mult; i++) {
+//            result |= value[i] << (i * 8);
+        for (int i = mult-1; i >= 0; i--) {
+            result |= value[mult-1-i] << (i * 8);
+        }
+        return result;
+    }
+    int to_int8(){ return to_int(8); }
+    int to_int16(){ return to_int(16); }
+    int to_int32(){ return to_int(32); }
+    int to_int64(){ return to_int(64); }
+
+    unsigned int to_uint(size_t bits = 8){
+        uint8_t value[8];
+        if(bits<=8){ bits=8; }
+        else if(bits<=16){ bits=16; }
+        else if(bits<=32){ bits=32; }
+        else if(bits<=64){ bits=64; }
+        else { std::cout << "Unsupported number of bits" << std::endl; }
+        int mult = bits >> 3;
+        std::memcpy(value, data, mult*sizeof(uint8_t));
+        unsigned int result = 0;
+        for (int i = mult-1; i >= 0; i--) {
+            result |= value[mult-1-i] << (i * 8);
+        }
+        return result;
+    }
+    unsigned int to_uint8(){ return to_uint(8); }
+    unsigned int to_uint16(){ return to_uint(16); }
+    unsigned int to_uint32(){ return to_uint(32); }
+    unsigned int to_uint64(){ return to_uint(64); }
+
+    std::string to_string(){
+        return std::string(reinterpret_cast<char*>(data), lengthInBytes);
+    }
+
+    double to_double(size_t bits = 32){
+        switch(bits){
+            case 32:
+                uint8_t value32[4];
+                std::memcpy(value32, data, 4*sizeof(uint8_t));
+                std::swap(value32[0], value32[3]);
+                std::swap(value32[1], value32[2]);
+                return *reinterpret_cast<double*>(value32);
+                break;
+            case 64:
+                uint8_t value64[8];
+                std::memcpy(value64, data, 8*sizeof(uint8_t));
+                std::swap(value64[0], value64[7]);
+                std::swap(value64[1], value64[6]);
+                std::swap(value64[2], value64[5]);
+                std::swap(value64[3], value64[4]);
+                return *reinterpret_cast<double*>(value64);
+                break;
+            default:
+                std::cout << "Unsupported number of bits" << std::endl; 
+                break;
+        }
+        return 0.0;
+    }
+    double to_double16(){ return to_double(16); }
+    double to_double64(){ return to_double(64); }
+
+    bool to_boolean(){
+        for(size_t i=0; i<lengthInBytes; i++){
+            if(data[i]){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    const unsigned int getOffset(){return offset;}
+    const unsigned int getLength(){return length;}
+    const unsigned int getLengthInBytes(){return lengthInBytes;}
+
+    const std::string getType() const {return type;}
+
+    const std::string toString() {
+        std::ostringstream oss;
+        for(int i = 0; i < lengthInBytes; i++){
+            for (int j = 7; j >= 0; j--) {
+                oss << ((data[i] >> j) & 1);
+            }
+        }
+        return oss.str();
+    }
+    friend std::ostream& operator<<(std::ostream& os, const BitStream& obj) {
+        for(int i = 0; i < obj.lengthInBytes; i++){
+            for (int j = 7; j >= 0; j--) {
+                os << ((obj.data[i] >> j) & 1);
+            }
+        }
+        return os;
+    }
+
+private:
+    std::string type;
+    unsigned char* data;
+    unsigned int offset;
+    unsigned int length;
+    unsigned int lengthInBytes;
+
+    BitStream(){
+        offset = 0;
+        data = nullptr;
+        lengthInBytes = 0;
+        length = 0;
+        type = "<undefined>";
+    }
+
+    void setBitStream(const unsigned char* src, size_t length_, const std::string& type_){
+        if(length_==0){
+            std::cerr << "Passed length is zero" << std::endl;
+            data = nullptr;
+            throw std::invalid_argument("Trying to create a zero length bit stream");
+        }
+        offset = 0;
+        length = length_;
+        type = type_;
+        lengthInBytes = (length + 7) >> 3; 
+
+        if(data != nullptr){
+            free(data);            
+            data = nullptr;
+        }
+        data = static_cast<unsigned char*>(calloc(lengthInBytes, sizeof(unsigned char)));
+        if(data==nullptr){
+            std::cerr << "ATTENZIONE errore nell'allocazione dello spazio" << std::endl;
+        }
+        memcpy(data, src, lengthInBytes);
+    }
+    
+
+    static constexpr const char base64_chars[64] = {
+        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+        'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'
+    };
+
+    static inline bool is_base64(unsigned char c) {
+        return (isalnum(c) || (c == '+') || (c == '/'));
+    }
+
+    static size_t base64_decode(const std::string& encoded_string, unsigned char*& decoded_data) {
+        size_t in_len = encoded_string.size();
+        size_t i = 0;
+        size_t j = 0;
+        size_t in_ = 0;
+        unsigned char char_array_4[4], char_array_3[3];
+        int k = 0;
+
+        if(decoded_data!=nullptr){
+            free(decoded_data);
+        }
+        decoded_data = reinterpret_cast<unsigned char*>(calloc((in_len * 3) / 4 + 1, sizeof(unsigned char)));
+
+        while (in_len-- && (encoded_string[in_] != '=') && (isalnum(encoded_string[in_]) || (encoded_string[in_] == '+') || (encoded_string[in_] == '/'))) {
+            char_array_4[i++] = encoded_string[in_]; in_++;
+            if (i == 4) {
+                for (i = 0; i < 4; i++)
+                    char_array_4[i] = std::find(BitStream::base64_chars, BitStream::base64_chars + 64, char_array_4[i]) - BitStream::base64_chars;
+
+                char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
+                char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
+                char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
+
+                for (i = 0; i < 3; i++)
+                    decoded_data[k++] = char_array_3[i];
+                i = 0;
+            }
+        }
+
+        if (i) {
+            for (j = i; j < 4; j++)
+                char_array_4[j] = 0;
+
+            for (j = 0; j < 4; j++)
+                char_array_4[j] = std::find(BitStream::base64_chars, BitStream::base64_chars + 64, char_array_4[j]) - BitStream::base64_chars;
+
+            char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
+            char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
+            char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
+
+            for (j = 0; (j < i - 1); j++)
+                decoded_data[k++] = char_array_3[j];
+        }
+        return static_cast<size_t>(k);
+    }
+
+    static const std::string base64_encode(unsigned char*& data, size_t length) {
+        std::string encoded_string;
+        size_t length_ = length;
+        unsigned char* data_ = data;
+
+        while (length_>0) {
+            unsigned char input_array[3] = {0};
+            int padding = 0;
+
+            input_array[0] = *(data_++);
+            length_--;
+            if (length_) {
+                input_array[1] = *(data_++);
+                length_--;
+                padding++;
+            }
+            if (length_) {
+                input_array[2] = *(data_++);
+                length_--;
+                padding++;
+            }
+
+            encoded_string += base64_chars[(input_array[0] & 0xfc) >> 2];
+            encoded_string += base64_chars[((input_array[0] & 0x03) << 4) | ((input_array[1] & 0xf0) >> 4)];
+            encoded_string += padding ? base64_chars[((input_array[1] & 0x0f) << 2) | ((input_array[2] & 0xc0) >> 6)] : '=';
+            encoded_string += padding ? base64_chars[input_array[2] & 0x3f] : '=';
+        }
+
+        return encoded_string;
+    }
+};
+
+
+
