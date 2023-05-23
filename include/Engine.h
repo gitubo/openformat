@@ -14,16 +14,18 @@
 
 class Engine {
 public:
-    Engine(const std::string&, const std::string&, const std::pair<std::map<std::string,std::string>,std::vector<MessageElement>>*);
+    Engine(const std::string&, const std::string&, const Schema*);
     const std::string apply();
 
 private:
+    void applyPreTransformations();
+    void applyPostTransformations();
     void analizeElement(const MessageElement&, const std::string&);
     void analizeStructure(const std::vector<MessageElement>&, const std::string&);
-    template <typename T>
-    int validateConstraints(const T&, const MessageElementConstraints&);
+    bool evaluateExistingConditions(const std::vector<MessageElementExistingCondition>&);
 
     nlohmann::ordered_json jsonFlatten;
+    std::unordered_map<std::string, BitStream*> bitStreamMap;
     BitStream* bitStream;
-    const std::pair<std::map<std::string,std::string>,std::vector<MessageElement>>* schema;
+    const Schema* schema;
 };

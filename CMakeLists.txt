@@ -4,7 +4,7 @@ project(myproject)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_VERBOSE_MAKEFILE OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -O2")
 
 add_library(proto_service STATIC proto/cpp/service.grpc.pb.cc proto/cpp/service.pb.cc)
 add_library(nlohmann_json INTERFACE)

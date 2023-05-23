@@ -1,5 +1,8 @@
 {
-	"name": "test3",
+	"version": "0.1",
+	"metadata": {
+		"name": "can"
+	},
 	"structure": [
 		{
 			"name": "position",

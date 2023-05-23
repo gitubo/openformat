@@ -2,21 +2,23 @@
 
 
 Engine::Engine(const std::string& base64_str, const std::string& type_, 
-                    const std::pair<std::map<std::string,std::string>,std::vector<MessageElement>>* schema_){
+//                    const std::pair<std::map<std::string,std::string>,std::vector<MessageElement>>* schema_){
+                    const Schema* schema_){
     bitStream = new BitStream(base64_str, type_);
     schema = schema_;
     Logger::getInstance().log("Setting engine input: " + bitStream->toString() + 
                               " (type: <" + bitStream->getType() + 
                               "> of <" + std::to_string(bitStream->getLength()) + "> bits)", Logger::Level::DEBUG);
 
-    Logger::getInstance().log("Setting schema: " + schema->first.at("name"), Logger::Level::DEBUG);
+    Logger::getInstance().log("Setting schema: " + schema->metadata.at("name"), Logger::Level::DEBUG);
 
 }
 
 
 const std::string Engine::apply(){
-    analizeStructure(schema->second, "");
 
+    // Analize the bitstream based on <structure> described by the provided schema
+    analizeStructure(schema->structure, "");
     if(bitStream->getOffset() < bitStream->getLength()){
         Logger::getInstance().log("Remaining unprocessed bits in the bit stream: "+
                                   std::to_string(bitStream->getLength()-bitStream->getOffset()) + " bit(s) left", Logger::Level::WARNING);
@@ -28,89 +30,96 @@ const std::string Engine::apply(){
 }
 
 void Engine::analizeElement(const MessageElement& element, const std::string& parentPath) {
+    if( !(evaluateExistingConditions(element.getExistingConditions())) ){
+        return;
+    }
+
     if(element.isArray()){
-        size_t repetition = element.getSize(); 
-        if(repetition==0) {
-            Logger::getInstance().log("Evaluating reference as array size <" + element.getArraySizeReference() + ">", Logger::Level::DEBUG);
-            if (jsonFlatten.contains(element.getArraySizeReference())) {
-                repetition = jsonFlatten[element.getArraySizeReference()].get<unsigned int>();
+        int repetitions = element.getRepetitions(); 
+        if(repetitions==0) {
+            Logger::getInstance().log("Evaluating reference as array size <" + element.getRepetitionsReference() + ">", Logger::Level::DEBUG);
+            if (jsonFlatten.contains(element.getRepetitionsReference())) {
+                repetitions = jsonFlatten[element.getRepetitionsReference()].get<unsigned int>();
             } else {
-                Logger::getInstance().log("Array size reference not found or not yet analyzed", Logger::Level::ERROR);
+                Logger::getInstance().log("Repetitions reference not found or not yet analyzed", Logger::Level::ERROR);
                 Logger::getInstance().log(jsonFlatten.dump(), Logger::Level::DEBUG);
-                throw std::invalid_argument("Array size reference <" + element.getArraySizeReference() + "> not found or not yet analyzed");
+                throw std::invalid_argument("Repetitions reference <" + element.getRepetitionsReference() + "> not found or not yet analyzed");
             }
         }
-        Logger::getInstance().log("Array size <" + std::to_string(repetition) + ">", Logger::Level::DEBUG);
+        Logger::getInstance().log("Repetitions <" + std::to_string(repetitions) + ">", Logger::Level::DEBUG);
         element.forceIsArray(false);  // force to evaluate the element N times
-        for(size_t i=0; i < repetition; i++){
+        for(size_t i=0; i < repetitions || repetitions==-1; i++){
             analizeElement(element, parentPath + "/" + std::to_string(i));
+            if(not bitStream->remainingBits()) break;
         }
     } else {
         int routingMapKey = 0;
         try{
-            switch(element.getType()){
+            BitStream* bt;
+            MessageElement::MessageElementType type_ = element.getType();
+            std::string name_ = parentPath;
+            if(element.getType() == MessageElement::MessageElementType::MET_EXTENDED){
+                BitStream* origBt = bitStreamMap[element.getExtendElement()];
+                BitStream* aux;
+                if(element.getBitLength()){
+                    aux = new BitStream(bitStream->consume(element.getBitLength()));  
+                } else {
+                    aux = new BitStream(bitStream->consumeUntill(element.getDelimiter()));
+                }
+                BitStream combinedBitStream = BitStream::combine(*origBt, *aux);
+                bt = new BitStream(combinedBitStream.getData(), combinedBitStream.getLength(), "");
+                type_ = MessageElement::MessageElementType::MET_UNSIGNED_INTEGER;
+                name_ = element.getExtendElement();
+            } else {
+                if(element.getBitLength()){
+                    bt = new BitStream(bitStream->consume(element.getBitLength()));  
+                } else {
+                    bt = new BitStream(bitStream->consumeUntill(element.getDelimiter()));
+                }
+            }
+            nlohmann::json jValue;
+            switch(type_){
                 case MessageElement::MessageElementType::MET_INTEGER:
                     {
-                        int value = bitStream->consume(element.getBitLength()).to_int(element.getBitLength());
-                        if(element.getConstraints().isSet() && validateConstraints(value, element.getConstraints()) != 0){
-                            std::string error_message = element.getName() + " does not match constraints";
-                            Logger::getInstance().log(error_message, Logger::Level::ERROR);
-                            throw std::invalid_argument(error_message);
-                        }
-                        if(element.isVisible()){ jsonFlatten[parentPath] = value; }
+                        int value = bt->to_int(element.getBitLength());
+                        jValue = value;
                         routingMapKey = value;    
                         break;
                     }
                 case MessageElement::MessageElementType::MET_UNSIGNED_INTEGER:
                     {
-                        unsigned int value = bitStream->consume(element.getBitLength()).to_uint(element.getBitLength());
-                        if(element.getConstraints().isSet() && validateConstraints(value, element.getConstraints()) != 0){
-                            std::string error_message = element.getName() + " does not match constraints";
-                            Logger::getInstance().log(error_message, Logger::Level::ERROR);
-                            throw std::invalid_argument(error_message);
-                        }
-                        if(element.isVisible()){ jsonFlatten[parentPath] = value; }
+                        unsigned int value = bt->to_uint(element.getBitLength());
+                        jValue = value;
                         routingMapKey = value;    
                         break;
                     }
                 case MessageElement::MessageElementType::MET_DECIMAL:
                     {
-                        double value = bitStream->consume(element.getBitLength()).to_double(element.getBitLength());
-                        if(element.getConstraints().isSet() && validateConstraints(value, element.getConstraints()) != 0){
-                            std::string error_message = element.getName() + " does not match constraints";
-                            Logger::getInstance().log(error_message, Logger::Level::ERROR);
-                            throw std::invalid_argument(error_message);
-                        }
-                        if(element.isVisible()){ jsonFlatten[parentPath] = value; }
+                        double value = bt->to_double(element.getBitLength());
+                        jValue = value;
                         break;
                     }
                 case MessageElement::MessageElementType::MET_STRING:
                     {
-                        std::string value = bitStream->consume(element.getBitLength()).to_string();
-                        if(element.getConstraints().isSet() && validateConstraints(value, element.getConstraints()) != 0){
-                            std::string error_message = element.getName() + " does not match constraints";
-                            Logger::getInstance().log(error_message, Logger::Level::ERROR);
-                            throw std::invalid_argument(error_message);
-                        }
-                        if(element.isVisible()){ jsonFlatten[parentPath] = value; }
+                        std::string value = bt->to_string();
+                        jValue = value;
                         break;
                     }
                 case MessageElement::MessageElementType::MET_BOOLEAN:
                     {
-                        bool value = bitStream->consume(element.getBitLength()).to_boolean();
-                        if(element.getConstraints().isSet() && validateConstraints(value, element.getConstraints()) != 0){
-                            std::string error_message = element.getName() + " does not match constraints";
-                            Logger::getInstance().log(error_message, Logger::Level::ERROR);
-                            throw std::invalid_argument(error_message);
-                        }
-                        if(element.isVisible()){ jsonFlatten[parentPath] = value; }
+                        bool value = bt->to_boolean();
+                        jValue = value;
                         break;
                     }
                 default:
-                    Logger::getInstance().log("Usupported type <" + MessageElement::MessageElementTypeToString(element.getType()) + "> for field with name: " + element.getName(), Logger::Level::ERROR);
-                    throw std::invalid_argument("Usupported type <" + MessageElement::MessageElementTypeToString(element.getType()) + "> for field with name: " + element.getName());
+                    Logger::getInstance().log("Usupported type <" + MessageElement::MessageElementTypeToString(type_) + "> for field with name: " + element.getName(), Logger::Level::ERROR);
+                    throw std::invalid_argument("Usupported type <" + MessageElement::MessageElementTypeToString(type_) + "> for field with name: " + element.getName());
                     break; 
             }
+
+            bitStreamMap[name_] = std::move(bt);
+            if(element.isVisible()){ jsonFlatten[name_] = jValue; }
+
         } catch (const std::exception& e) {
             throw;
         }
@@ -125,20 +134,21 @@ void Engine::analizeElement(const MessageElement& element, const std::string& pa
                 } 
                 if(elementOfTheMap.getType() == MessageElement::MessageElementType::MET_STRUCTURE){
                     if(elementOfTheMap.isArray()){
-                        size_t repetition = elementOfTheMap.getSize(); 
-                        if(repetition==0) {
-                            Logger::getInstance().log("Evaluating reference as array size <" + elementOfTheMap.getArraySizeReference() + ">", Logger::Level::DEBUG);
-                            if (jsonFlatten.contains(elementOfTheMap.getArraySizeReference())) {
-                                repetition = jsonFlatten[elementOfTheMap.getArraySizeReference()].get<unsigned int>();
+                        int repetitions = elementOfTheMap.getRepetitions(); 
+                        if(repetitions==0) {
+                            Logger::getInstance().log("Evaluating reference as array size <" + elementOfTheMap.getRepetitionsReference() + ">", Logger::Level::DEBUG);
+                            if (jsonFlatten.contains(elementOfTheMap.getRepetitionsReference())) {
+                                repetitions = jsonFlatten[elementOfTheMap.getRepetitionsReference()].get<unsigned int>();
                             } else {
-                                Logger::getInstance().log("Array size reference not found or not yet analyzed", Logger::Level::ERROR);
+                                Logger::getInstance().log("Repetitions reference not found or not yet analyzed", Logger::Level::ERROR);
                                 Logger::getInstance().log(jsonFlatten.dump(), Logger::Level::DEBUG);
-                                throw std::invalid_argument("Array size reference <" + elementOfTheMap.getArraySizeReference() + "> not found or not yet analyzed");
+                                throw std::invalid_argument("Repetitions reference <" + elementOfTheMap.getRepetitionsReference() + "> not found or not yet analyzed");
                             }
                         }
-                        Logger::getInstance().log("Array size <" + std::to_string(repetition) + ">", Logger::Level::DEBUG);
-                        for(size_t i=0; i < repetition; i++){
+                        Logger::getInstance().log("Repetitions <" + std::to_string(repetitions) + ">", Logger::Level::DEBUG);
+                        for(size_t i=0; i < repetitions || repetitions==-1; i++){
                             analizeStructure(elementOfTheMap.getStructure(), newParentPath + "/" + std::to_string(i));
+                            if(not bitStream->remainingBits()) break;
                         }
                     } else {
                         analizeStructure(elementOfTheMap.getStructure(), newParentPath);            
@@ -156,6 +166,26 @@ void Engine::analizeElement(const MessageElement& element, const std::string& pa
     }
 }
 
+bool Engine::evaluateExistingConditions(const std::vector<MessageElementExistingCondition>& conditions){
+    if(conditions.size()==0){
+        return true;
+    }
+    for(auto& condition : conditions){
+        if(jsonFlatten.count(condition.getRefField())!=0){
+            nlohmann::json field = jsonFlatten[condition.getRefField()];
+            nlohmann::json value = condition.getRefValue();
+            if(condition.getCondition() == MessageElementExistingCondition::MessageElementExistingConditionType::DCT_EQUAL &&
+                jsonFlatten[condition.getRefField()].get<bool>()==false ){
+                Logger::getInstance().log("Condition not met on field: " + condition.getRefField(), Logger::Level::DEBUG);
+                return false;
+            }
+        } else if(condition.getCondition() == MessageElementExistingCondition::MessageElementExistingConditionType::DCT_EXIST){
+            return false;
+        }
+    }
+    return true;
+}
+
 void Engine::analizeStructure(const std::vector<MessageElement>& structure, const std::string& parentPath){
     int i = 0;
     Logger::getInstance().log("Evaluating a structure of "+
@@ -167,21 +197,22 @@ void Engine::analizeStructure(const std::vector<MessageElement>& structure, cons
         
         if(it->getType() == MessageElement::MessageElementType::MET_STRUCTURE){ 
             if(it->isArray()){
-                size_t repetition = it->getSize(); 
-                if(repetition==0) {
-                    Logger::getInstance().log("Evaluating reference as array size <" + it->getArraySizeReference() + ">", Logger::Level::DEBUG);
-                    if (jsonFlatten.contains(it->getArraySizeReference())) {
-                        repetition = jsonFlatten[it->getArraySizeReference()].get<unsigned int>();
+                int repetitions = it->getRepetitions(); 
+                if(repetitions==0) {
+                    Logger::getInstance().log("Evaluating reference as array repetitions <" + it->getRepetitionsReference() + ">", Logger::Level::DEBUG);
+                    if (jsonFlatten.contains(it->getRepetitionsReference())) {
+                        repetitions = jsonFlatten[it->getRepetitionsReference()].get<unsigned int>();
                     } else {
-                        Logger::getInstance().log("Array size reference not found or not yet analyzed", Logger::Level::ERROR);
+                        Logger::getInstance().log("Repetitions reference not found or not yet analyzed", Logger::Level::ERROR);
                         Logger::getInstance().log(jsonFlatten.dump(), Logger::Level::DEBUG);
-                        throw std::invalid_argument("Array size reference <" + it->getArraySizeReference() + "> not found or not yet analyzed");
+                        throw std::invalid_argument("Repetitions reference <" + it->getRepetitionsReference() + "> not found or not yet analyzed");
                     }
                 }
-                Logger::getInstance().log("Array size <" + std::to_string(repetition) + ">", Logger::Level::DEBUG);
+                Logger::getInstance().log("Repetitions <" + std::to_string(repetitions) + ">", Logger::Level::DEBUG);
                 it->forceIsArray(false);  // force to evaluate the element N times
-                for(size_t i=0; i < repetition; i++){
+                for(int i=0; i < repetitions || repetitions==-1; i++){
                     analizeStructure(it->getStructure(), parentPath + "/" + std::to_string(i));
+                    if(not bitStream->remainingBits()) break;
                 }
             } else {
                 std::string newParentPath = parentPath;    
@@ -194,21 +225,4 @@ void Engine::analizeStructure(const std::vector<MessageElement>& structure, cons
             analizeElement(*it, parentPath + "/" + it->getName());
         }
     }
-}
-
-template <typename T>
-int Engine::validateConstraints(const T& value, const MessageElementConstraints& constraints){
-/*
-    Logger::getInstance().log("Validating constrains", logging::trivial::debug);        
-    if (std::is_same<T, std::string>::value){
-        return 0;
-    } else if (std::is_same<T, int>::value || std::is_same<T, unsigned int>::value || std::is_same<T, double>::value){
-        if(constraints.isSetMinimum() && constraints.getMinimum() > value){ return 10; }
-        if(constraints.isSetMaximum() && constraints.getMaximum() < value){ return 20; }
-    } else {
-        Logger::getInstance().log("Trying to attend validation on not supported type", logging::trivial::warning);                    
-        return 100;
-    }
-*/
-    return 0;
 }

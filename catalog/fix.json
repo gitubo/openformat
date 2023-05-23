@@ -1,0 +1,36 @@
+{
+	"version": "0.1",
+	"metadata": {
+		"name": "fix",
+		"description": "Financial Information eXchange"
+	},
+	"structure": [
+		{
+			"name": "element",
+			"bit_length": 1,
+			"type": "structure",
+			"repetitions": -1,
+			"flatten_structure": true,
+			"structure": [
+				{
+					"name": "tag",
+					"delimiter": 61,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "fixed_=",
+					"bit_length": 8,
+					"type": "string",
+					"visible": false
+				},
+				{
+					"name": "value",
+					"delimiter": 1,
+					"type": "string"
+				}
+				
+			]
+		}
+	]
+}
+

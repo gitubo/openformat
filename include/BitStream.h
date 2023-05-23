@@ -8,11 +8,9 @@
 #include <stdexcept>
 
 
-
 class BitStream {
 
 public:
-
     BitStream(const std::string& base64_str, const std::string& type_) : type(type_){
         offset = 0;
         data = nullptr;
@@ -55,8 +53,59 @@ public:
         }
     }
 
-    BitStream consume(int length_) {
+    BitStream readFrom(int length_, int offset_) {
+        if(offset_ + length_ > length){
+            throw std::length_error("Trying to access more bits than provided: current offset is <" + 
+                                    std::to_string(offset_) + ">, bits to be consumed are <" +
+                                    std::to_string(length_) + ">, total amount of bits is <" + std::to_string(length) + ">");
+        }
 
+        int byte_offset = offset_ >> 3;
+        int bit_offset = offset_ % 8;
+        size_t num_blocks = (length_ + bit_offset + 7) >> 3;
+        unsigned char result[num_blocks];
+
+        //cut the relevant part of the stream
+        int bits_to_extract = length_;
+        for(int i = 0; i < num_blocks && bits_to_extract > 0; i++) { 
+            int bits_remaining = bits_to_extract + bit_offset > 8 ? 8 - bit_offset : bits_to_extract;
+            unsigned short mask = ((1 << bits_remaining) - 1) << (8-bits_remaining-bit_offset);
+            unsigned char extracted_bits = (data[byte_offset] & mask) >> 8-bits_remaining-bit_offset;
+            result[i] = extracted_bits;
+            bits_to_extract -= bits_remaining;
+            byte_offset++;
+            bit_offset = 0;
+        }
+
+        unsigned int alignment = (length_ + offset_) % 8;
+        if(offset_ % 8 || alignment){
+            //align all the bytes to the right (the first one is already aligned)
+            unsigned short bits_remaining = 8 - alignment;
+            unsigned short mask = ((1 << bits_remaining) - 1);
+            for(int i = num_blocks-1-1; i >= 0; i--){
+                unsigned char carry = (result[i] & mask); 
+                result[i] = result[i] >> bits_remaining;
+                result[i+1] = result[i+1] | (carry << alignment);
+            }
+        }
+
+        BitStream bt;
+        size_t real_num_blocks = (length_ + 7) >> 3;
+        if(real_num_blocks == num_blocks){
+            bt.setBitStream(result, length_, "");
+        } else {
+            //cut not needed bytes
+            unsigned char real_result[real_num_blocks];
+            for(int i = real_num_blocks-1; i >= 0; i--){
+                unsigned int index = i + (num_blocks-real_num_blocks);
+                real_result[i] = result[index];
+            }         
+            bt.setBitStream(real_result, length_, "");            
+        }
+        return bt;
+    }
+
+    BitStream read(int length_) {
         if(offset + length_ > length){
             throw std::length_error("Trying to access more bits than provided: current offset is <" + 
                                     std::to_string(offset) + ">, bits to be consumed are <" +
@@ -105,7 +154,52 @@ public:
             }         
             bt.setBitStream(real_result, length_, "");            
         }
+        return bt;
+    }
+
+    BitStream consume(int length_) {
+        BitStream bt = read(length_);
         offset += length_;
+        return bt;
+    }    
+
+    BitStream consumeUntill(int delimiter){
+        BitStream bt;
+        unsigned int offset_ = offset;
+        while(readFrom(8, offset_).to_int()!=delimiter && offset_<length){
+            offset_++;
+        }
+        if(offset_>=length){
+            return bt;
+        }
+        return consume(offset_-offset);
+    }
+
+
+    static BitStream combine(BitStream& a, BitStream& b){
+        unsigned int totalLength = a.length + b.length;
+        unsigned int totalLengthInBytes = (totalLength + 7) >> 3;
+        unsigned char result[totalLengthInBytes];
+
+        // Copy BitStream b at the end of the resulting BitStream
+        memset(result, 0, totalLengthInBytes*sizeof(unsigned char));
+        memcpy(result + totalLengthInBytes - b.lengthInBytes, b.data, b.lengthInBytes);
+
+        unsigned int alignment = b.lengthInBytes * 8 - b.length;
+        if(alignment){
+            // Align all the bytes of BitStream 'a' to the right
+            // and copy them into the resulting BitStream
+            unsigned short shifting = 8 - alignment;
+            unsigned short mask = ((1 << alignment) - 1);
+            for(int i = a.lengthInBytes-1; i > 0; i--){
+                result[i-1] = a.data[i] >> alignment;
+                result[i] = a.data[i] << shifting;
+            }
+        } else {
+            memcpy(result, a.data, a.lengthInBytes);
+        }
+
+        BitStream bt(result, totalLength, "");
         return bt;
     }
 
@@ -203,6 +297,7 @@ public:
     }
 
     const unsigned int getOffset(){return offset;}
+    const unsigned char* getData(){return data;}
     const unsigned int getLength(){return length;}
     const unsigned int getLengthInBytes(){return lengthInBytes;}
 
@@ -215,6 +310,7 @@ public:
                 oss << ((data[i] >> j) & 1);
             }
         }
+        oss << " - " << length << " bit(s)";
         return oss.str();
     }
     friend std::ostream& operator<<(std::ostream& os, const BitStream& obj) {
@@ -224,6 +320,25 @@ public:
             }
         }
         return os;
+    }
+
+    BitStream(const BitStream & source) {
+        type = source.type;
+        offset = source.offset;
+        length = source.length;
+        lengthInBytes = source.lengthInBytes;
+
+        data = static_cast<unsigned char*>(calloc(lengthInBytes, sizeof(unsigned char)));
+        if(data==nullptr){
+            std::cerr << "ATTENZIONE errore nell'allocazione dello spazio" << std::endl;
+        }
+        memcpy(data, source.data, lengthInBytes);
+    }
+
+    int remainingBits(){
+        int remainingBits = length-offset-1;
+        if(remainingBits<0) return 0;
+        return remainingBits;
     }
 
 private:
@@ -262,7 +377,6 @@ private:
         }
         memcpy(data, src, lengthInBytes);
     }
-    
 
     static constexpr const char base64_chars[64] = {
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',

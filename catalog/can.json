@@ -1,5 +1,9 @@
 {
-	"name": "can",
+	"version": "0.1",
+	"metadata": {
+		"name": "can",
+		"description": "CAN standard and extended"
+	},
 	"structure": [
 		{
 			"name": "start_of_frame",
@@ -51,7 +55,7 @@
 					"name": "data",
 					"bit_length": 8,
 					"type": "unsigned integer",
-					"size": "/DLC"
+					"repetitions": "/DLC"
 				},
 				{
 					"name": "CRC",
@@ -88,7 +92,8 @@
 				{
 					"name": "extended_identifier",
 					"bit_length": 18,
-					"type": "unsigned integer"
+					"type": "extended",
+					"extend": "/identifier"
 				},
 				{
 					"name": "RTR",
@@ -114,7 +119,7 @@
 					"name": "data",
 					"bit_length": 8,
 					"type": "unsigned integer",
-					"size": "/DLC"
+					"repetitions": "/DLC"
 				},
 				{
 					"name": "CRC",
@@ -143,23 +148,6 @@
 				}
 			]
 		}
-	},
-	"transformations":[
-		{
-			"description": "Generate 29bits identifier",
-			"elaboration": "post",
-			"tasks": [
-				{
-					"command": "concatenate",
-					"arguments": ["/identifier", "/identifier", "/extended_identifier"]
-				},
-				{
-					"command": "remove",
-					"arguments": ["/extended_identifier"]
-				}
-			],
-			"error": "ignore"
-		}
-	]
+	}
 }
 

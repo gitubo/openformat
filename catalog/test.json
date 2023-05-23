@@ -1,5 +1,8 @@
 {
-	"name": "test",
+	"version": "0.1",
+	"metadata": {
+		"name": "can"
+	},
 	"structure": [
 		{
 			"name": "data",
@@ -23,9 +26,7 @@
 			"type": "unsigned integer",
 			"routing":[
 				[1, "/definitions/aaa"],
-				[2, "/definitions/bbb"],
-				[3, "/definitions/ccc"],
-				[4, "/definitions/ddd"]
+				[2, "/definitions/bbb"]
 			]			
 		}
 	],
@@ -39,41 +40,8 @@
 			"name": "bbb",
 			"type": "unsigned integer",
 			"bit_length": 8,
-			"size": 4
-		},
-		"ddd":{
-			"name": "ddd",
-			"type": "structure",
-			"structure": [
-				{
-					"name": "a",
-					"type": "integer",
-					"bit_length": 8,
-					"visible": false
-				},
-				{
-					"name": "b",
-					"type": "integer",
-					"bit_length": 8,
-					"size": 3
-				}
-			]
-		},
-		"ccc":{
-			"name": "ccc",
-			"type": "structure",
-			"structure": [
-				{
-					"name": "a",
-					"type": "integer",
-					"bit_length": 16
-				},
-				{
-					"name": "b",
-					"type": "integer",
-					"bit_length": 16
-				}
-			]
+			"repetitions": 4,
+			"encoding": "bcd"
 		}
 	}
 }

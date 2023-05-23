@@ -1,0 +1,132 @@
+{
+	"version": "0.1",
+	"metadata": {
+		"name": "ISO8583",
+		"description": "ISO 8583 for financial transaction card originated interchange messaging"
+	},
+	"structure": [
+		{
+			"name": "MTI",
+			"bit_length": 4,
+			"type": "structure",
+			"structure":[
+				{
+					"name": "version",
+					"bit_length": 4,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "message_class",
+					"bit_length": 4,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "message_function",
+					"bit_length": 4,
+					"type": "unsigned integer"
+				},
+				{
+					"name": "message_origin",
+					"bit_length": 4,
+					"type": "unsigned integer"
+				}
+			]
+		},
+		{
+			"name": "bitmap",
+			"bit_length": 64,
+			"type": "structure",
+			"structure":[
+				{ "name": "secondary_bitmap", "bit_length": 1, "type": "boolean" },
+				{ "name": "extended_pan", "bit_length": 1, "type": "boolean" },
+				{ "name": "processing_code", "bit_length": 1, "type": "boolean" },
+				{ "name": "transaction_amount", "bit_length": 1, "type": "boolean" },
+				{ "name": "possible_fee_amount", "bit_length": 1, "type": "boolean" },
+				{ "name": "cashback_amount", "bit_length": 1, "type": "boolean" },
+				{ "name": "total_transaction_amount", "bit_length": 1, "type": "boolean" },
+				{ "name": "registration_date", "bit_length": 1, "type": "boolean" },
+				{ "name": "expiration_date", "bit_length": 1, "type": "boolean" },
+				{ "name": "effective_date", "bit_length": 1, "type": "boolean" },
+				{ "name": "STAN", "bit_length": 1, "type": "boolean" },
+				{ "name": "registration_time", "bit_length": 1, "type": "boolean" },
+				{ "name": "expiration_time", "bit_length": 1, "type": "boolean" },
+				{ "name": "effective_time", "bit_length": 1, "type": "boolean" },
+				{ "name": "purchase_date", "bit_length": 1, "type": "boolean" },
+				{ "name": "conversion_rate", "bit_length": 1, "type": "boolean" },
+				{ "name": "possible_fee_convertion_rate", "bit_length": 1, "type": "boolean" },
+				{ "name": "cashback_conversion_rate", "bit_length": 1, "type": "boolean" },
+				{ "name": "total_transaction_conversion_rate", "bit_length": 1, "type": "boolean" },
+				{ "name": "CAN", "bit_length": 1, "type": "boolean" },
+				{ "name": "CATI", "bit_length": 1, "type": "boolean" },
+				{ "name": "alternate_pan", "bit_length": 1, "type": "boolean" },
+				{ "name": "original_transaction_currency_conversion_rate", "bit_length": 1, "type": "boolean" },
+				{ "name": "commission_amount_conversion_rate", "bit_length": 1, "type": "boolean" },
+				{ "name": "possible_fee_commission_amount_conversion_rate", "bit_length": 1, "type": "boolean" },
+				{ "name": "cashback_commission_amount_conversion_rate", "bit_length": 1, "type": "boolean" },
+				{ "name": "total_transaction_commission_amount_conversion_rate", "bit_length": 1, "type": "boolean" },
+				{ "name": "reversal_authorization", "bit_length": 1, "type": "boolean" },
+				{ "name": "transaction_type_indicator", "bit_length": 1, "type": "boolean" },
+				{ "name": "service_type_indicator", "bit_length": 1, "type": "boolean" },
+				{ "name": "extended_cardholder_account_number", "bit_length": 1, "type": "boolean" },
+				{ "name": "acquirer_id", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_33", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_34", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_35", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_36", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_37", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_38", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_39", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_40", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_41", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_42", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_43", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_44", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_45", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_46", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_47", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_48", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_49", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_50", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_51", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_52", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_53", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_54", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_55", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_56", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_57", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_58", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_59", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_60", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_61", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_62", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_63", "bit_length": 1, "type": "boolean" },
+				{ "name": "bitmap_64", "bit_length": 1, "type": "boolean" }
+			]
+		},
+		{
+			"name": "test",
+			"bit_length": 24,
+			"type": "unsigned integer",
+			"number_encoding": "bcd",
+			"existing_conditions": [ { "ref_field": "/bitmap/secondary_bitmap", "condition": "eq", "ref_value": true } ]
+		},
+		{
+			"name": "processing_code",
+			"bit_length": 24,
+			"type": "unsigned integer",
+			"number_encoding": "bcd",
+			"existing_conditions": [ { "ref_field": "/bitmap/processing_code", "condition": "eq", "ref_value": true } ]
+		},
+		{
+			"name": "STAN",
+			"bit_length": 24,
+			"type": "unsigned integer",
+			"number_encoding": "bcd"
+		},
+		{
+			"name": "Field_41",
+			"bit_length": 64,
+			"type": "string"
+		}
+	]
+}

@@ -64,54 +64,5 @@ private:
     Logger() = default;
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;    
-//    Level severity = Level::DEBUG;
     unsigned int severity = static_cast<unsigned int>(Level::DEBUG);
 };
-
-/*
-#include <boost/log/core.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/log/expressions.hpp>
-#include <boost/log/sinks/text_ostream_backend.hpp>
-#include <boost/log/utility/setup/console.hpp>
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <memory>
-#include <iostream>
-
-#define LOG_LEVEL logging::trivial::info
-
-namespace logging = boost::log;
-namespace sinks = boost::log::sinks;
-namespace keywords = boost::log::keywords;
-
-class Logger {
-  private:
-    logging::sources::severity_logger_mt<logging::trivial::severity_level> logger;
-    
-    Logger() {
-        logging::add_console_log(
-            std::cout,
-            keywords::format = "[%TimeStamp%] [%Severity%]: %Message%"
-        );
-
-        logging::core::get()->set_filter(
-            logging::trivial::severity >= LOG_LEVEL
-        );
-
-        logging::add_common_attributes();
-    }
-    
-  public:
-    static Logger& getInstance() {
-        static Logger instance;
-        return instance;
-    }
-    
-    void log(const std::string& message, logging::trivial::severity_level severity) {
-        BOOST_LOG_SEV(logger, severity) << message;
-    }
-
-    Logger(Logger const&) = delete;
-    void operator=(Logger const&) = delete;
-};
-*/
