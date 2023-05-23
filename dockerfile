@@ -1,13 +1,5 @@
 FROM alpine:latest as development
 
-
-COPY dl-cdn.alpinelinux.org.crt /usr/local/share/ca-certificates/mycert.crt
-RUN cat /usr/local/share/ca-certificates/mycert.crt >> /etc/ssl/certs/ca-certificates.crt
-RUN echo "" >> /etc/ssl/certs/ca-certificates.crt
-COPY zscaler_root_ca.crt /usr/local/share/ca-certificates/mycert.crt
-RUN cat /usr/local/share/ca-certificates/mycert.crt >> /etc/ssl/certs/ca-certificates.crt
-RUN echo "" >> /etc/ssl/certs/ca-certificates.crt
-
 RUN apk update --no-cache && apk upgrade --no-cache 
 RUN apk add --no-cache ca-certificates openssl
 RUN update-ca-certificates
@@ -30,8 +22,6 @@ RUN apk add --no-cache \
         protobuf-dev \
         grpc \
         grpc-dev 
-RUN apk add --no-cache \
-        valgrind
         
 WORKDIR /app
 
@@ -58,13 +48,6 @@ RUN make -j 4
 ## PRODUCTION
 FROM alpine:latest as production
 
-COPY dl-cdn.alpinelinux.org.crt /usr/local/share/ca-certificates/mycert.crt
-RUN cat /usr/local/share/ca-certificates/mycert.crt >> /etc/ssl/certs/ca-certificates.crt
-RUN echo "" >> /etc/ssl/certs/ca-certificates.crt
-COPY zscaler_root_ca.crt /usr/local/share/ca-certificates/mycert.crt
-RUN cat /usr/local/share/ca-certificates/mycert.crt >> /etc/ssl/certs/ca-certificates.crt
-RUN echo "" >> /etc/ssl/certs/ca-certificates.crt
-
 RUN apk update --no-cache && apk upgrade --no-cache 
 RUN apk add --no-cache ca-certificates openssl
 RUN update-ca-certificates
@@ -72,6 +55,6 @@ RUN update-ca-certificates
 RUN apk add --no-cache grpc-dev 
 WORKDIR /app
 COPY --from=development /app/catalog /catalog
-COPY --from=development /app/build/translator /app/translator
+COPY --from=development /app/build/openformat /app/openformat
 COPY --from=development /app/build/client /app/client
-CMD ["./translator"]
+CMD ["./openformat"]
