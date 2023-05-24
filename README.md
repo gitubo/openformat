@@ -8,14 +8,14 @@ With a particular focus on performance and scalability, our dissector is designe
 
 ## Compile
 
-Pre-requirements:
+### Pre-requirements
 1. gRPC installed
 2. nlohmann json library installed
-'''shell
-ciao
-'''
-To compile the project:
 
+### Steps to compile
+```shell-script
+cd pippo
+```
 1. Clone the repository
 2. Navigate to the project directory
    $> cd openformat
