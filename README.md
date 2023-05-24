@@ -13,16 +13,19 @@ With a particular focus on performance and scalability, our dissector is designe
 2. nlohmann json library installed
 
 ### Steps to compile
-```shell-script
-cd pippo
-```
 1. Clone the repository
 2. Navigate to the project directory
-   $> cd openformat
+```sh
+cd openformat
+```
 3. Compile the project using CMake:
-   $> mkdir build
-   $> cd build
-   $> cmake ..
-   $> make
+```sh
+mkdir build
+cd build
+cmake ..
+make
+```
 4. Run the program:
-   $> ./build/openformat
+```sh
+./build/openformat
+```
