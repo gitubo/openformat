@@ -11,7 +11,9 @@ With a particular focus on performance and scalability, our dissector is designe
 Pre-requirements:
 1. gRPC installed
 2. nlohmann json library installed
-
+'''shell
+ciao
+'''
 To compile the project:
 
 1. Clone the repository
