@@ -110,7 +110,7 @@ public:
         MET_ROUTING = 200,
         MET_PAYLOAD = 1000
     };
-    enum class NumericEncoding {
+    enum class NumericEncodingType {
         NE_UNDEFINED = 0,
         NE_BINARY = 10,
         NE_BCD = 20,
@@ -156,6 +156,8 @@ public:
         routing = routing_;
         return routing;
     }
+    NumericEncodingType setNumericEncoding(const NumericEncodingType numeric_encoding_) {numeric_encoding = numeric_encoding_; return numeric_encoding;}
+    
     std::string getName() const {return name;}
     size_t getBitLength() const {return bitLength;}
     int getRepetitions() const {return repetitions;}
@@ -168,6 +170,7 @@ public:
     const std::vector<MessageElementExistingCondition> getExistingConditions() const {return existingConditions;}
     const std::vector<MessageElement> getStructure() const {return structure;}
     const std::map<int, MessageElement> getRouting() const {return routing;}
+    NumericEncodingType getNumericEncoding() const {return numeric_encoding;}
 
     const bool isArray() const {return is_array;} 
     const bool forceIsArray(bool is_array_) const {is_array = is_array_; return is_array;} 
@@ -232,13 +235,44 @@ public:
       }
     }
 
+    static const NumericEncodingType stringToNumericEncodingType(const std::string& str) {
+      static const std::map<std::string, NumericEncodingType> NumericEncodingTypeMap = {
+        {"binary", NumericEncodingType::NE_BINARY},
+        {"bcd", NumericEncodingType::NE_BCD},
+        {"ascii", NumericEncodingType::NE_ASCII},
+        {"2complement", NumericEncodingType::NE_2COMPLEMENT},
+      };
+      auto it = NumericEncodingTypeMap.find(str);
+      if (it != NumericEncodingTypeMap.end()) {
+        return it->second;
+      } 
+      return NumericEncodingType::NE_UNDEFINED;
+    }
+
+    static const std::string NumericEncodingTypeToString(const NumericEncodingType value) {
+      switch (value) {
+        case NumericEncodingType::NE_UNDEFINED:
+          return "undefined";
+        case NumericEncodingType::NE_BINARY:
+          return "binary";
+        case NumericEncodingType::NE_BCD:
+          return "bcd";
+        case NumericEncodingType::NE_ASCII:
+          return "ascii";
+        case NumericEncodingType::NE_2COMPLEMENT:
+          return "2complement";
+        default:
+          return "UNKNOWN";
+      }
+    }
+
 private:
     std::string name = "<undefined>";
     size_t bitLength = 8;
     int repetitions = 1;
     std::string repetitionsReference = "<undefined>";
     int delimiter = 0;
-    NumericEncoding numericEncoding = NumericEncoding::NE_BINARY;
+    NumericEncodingType numeric_encoding = NumericEncodingType::NE_BINARY;
 
     mutable bool is_array = false;
     mutable bool is_visible = true;

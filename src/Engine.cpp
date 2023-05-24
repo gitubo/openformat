@@ -1,17 +1,13 @@
 #include "Engine.h"
 
 
-Engine::Engine(const std::string& base64_str, const std::string& type_, 
-//                    const std::pair<std::map<std::string,std::string>,std::vector<MessageElement>>* schema_){
-                    const Schema* schema_){
+Engine::Engine(const std::string& base64_str, const std::string& type_,  const Schema* schema_){
     bitStream = new BitStream(base64_str, type_);
     schema = schema_;
     Logger::getInstance().log("Setting engine input: " + bitStream->toString() + 
                               " (type: <" + bitStream->getType() + 
                               "> of <" + std::to_string(bitStream->getLength()) + "> bits)", Logger::Level::DEBUG);
-
     Logger::getInstance().log("Setting schema: " + schema->metadata.at("name"), Logger::Level::DEBUG);
-
 }
 
 
@@ -23,9 +19,7 @@ const std::string Engine::apply(){
         Logger::getInstance().log("Remaining unprocessed bits in the bit stream: "+
                                   std::to_string(bitStream->getLength()-bitStream->getOffset()) + " bit(s) left", Logger::Level::WARNING);
     }
-
     std::string returnJson = jsonFlatten.unflatten().dump();
-    Logger::getInstance().log("UnFlatten JSON: " + returnJson, Logger::Level::DEBUG);
     return returnJson;
 }
 
@@ -81,14 +75,25 @@ void Engine::analizeElement(const MessageElement& element, const std::string& pa
             switch(type_){
                 case MessageElement::MessageElementType::MET_INTEGER:
                     {
-                        int value = bt->to_int(element.getBitLength());
+                        int value;
+                        if(element.getNumericEncoding() == MessageElement::NumericEncodingType::NE_BCD){
+                            value = bt->to_int_bcd(element.getBitLength());
+                        } else {
+                            value = bt->to_int(element.getBitLength());
+                        }
                         jValue = value;
                         routingMapKey = value;    
                         break;
                     }
                 case MessageElement::MessageElementType::MET_UNSIGNED_INTEGER:
                     {
-                        unsigned int value = bt->to_uint(element.getBitLength());
+                        int value;
+                        if(element.getNumericEncoding() == MessageElement::NumericEncodingType::NE_BCD){
+                            value = bt->to_int_bcd(element.getBitLength());
+                        } else {
+                            value = bt->to_uint(element.getBitLength());
+                        }
+                        jValue = value;
                         jValue = value;
                         routingMapKey = value;    
                         break;

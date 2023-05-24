@@ -1,6 +1,6 @@
-#include "CatalogFileReader.h"
 #include "Engine.h"
 #include "Logger.h"
+#include "FileWatcher.h"
 #include <chrono>
 #include <iostream>
 #include <cstdlib>
@@ -31,6 +31,7 @@ class ServiceImpl final : public service::Service {
         returnJson = engine.apply();
         auto end_time = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        Logger::getInstance().log("Json: " + returnJson, Logger::Level::DEBUG);
         Logger::getInstance().log("Elaboration time: " + std::to_string(duration.count()) + " us", Logger::Level::INFO);
     } catch (const std::exception& e) {
         Logger::getInstance().log("Engine exception: " + std::string(e.what()), Logger::Level::ERROR);
@@ -48,8 +49,8 @@ class ServiceImpl final : public service::Service {
   }
 };
 
-void RunServer() {
-  std::string server_address("0.0.0.0:50051");
+void RunServer(const std::string& service_port) {
+  std::string server_address("0.0.0.0:"+service_port);
   ServiceImpl service;
 
   ServerBuilder builder;
@@ -65,34 +66,44 @@ void RunServer() {
 int main(int argc, char* argv[]) {
 
     int opt;
-    std::string catalog_path = "../catalog";
-    std::string log_level = "";
+    std::string catalog_path = std::getenv("CATALOG_PATH") ? std::string(std::getenv("CATALOG_PATH")) : "../catalog";
+    std::string log_level = std::getenv("LOG_LEVEL") ? std::string(std::getenv("LOG_LEVEL")) : "info";
+    std::string service_port = std::getenv("PORT") ? std::string(std::getenv("PORT")) : "50051";
 
-    while ((opt = getopt(argc, argv, "c:l:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:l:p:")) != -1) {
         switch (opt) {
             case 'c':
                 catalog_path = optarg;
+                break;
+            case 'p':
+                service_port = optarg;
                 break;
             case 'l':
                 log_level = optarg;
                 break;
             default:
-                std::cerr << "Usage: " << argv[0] << " -c catalog_path -l log_level" << std::endl;
+                std::cerr << "Usage: " << argv[0] << " -c catalog_path -l log_level -p service_port" << std::endl;
                 std::exit(EXIT_FAILURE);
         }
     }
+    std::transform(log_level.begin(), log_level.end(), log_level.begin(), ::tolower);
 
     Logger::Level logger_log_level = Logger::Level::INFO;
+    Logger::getInstance().log("Argument catalog_path set to " + catalog_path, Logger::Level::INFO);
+    Logger::getInstance().log("Argument log_level set to " + log_level, Logger::Level::INFO);
+    Logger::getInstance().log("Argument service_port set to " + service_port, Logger::Level::INFO);
+
     if(log_level == "debug") logger_log_level = Logger::Level::DEBUG;
     else if(log_level == "warning") logger_log_level = Logger::Level::WARNING;
     else if(log_level == "error") logger_log_level = Logger::Level::ERROR;
     else if(log_level == "critical") logger_log_level = Logger::Level::CRITICAL;
     Logger::getInstance().setLevel(logger_log_level);
 
-    // Load catalog
-    CatalogFileReader::getInstance().collect(catalog_path);
+    // Start the catalog watcher thread
+    FileWatcher watcher(catalog_path);
+    watcher.StartWatching();
 
-    RunServer();
+    RunServer(service_port);
     return 0;
 
 }

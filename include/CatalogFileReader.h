@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <map>
@@ -30,8 +31,6 @@ private:
     MessageElement parseJsonMessageElement(json, const json&);
     std::vector<MessageElement> parseJsonMessageElementStructure(json, const json&);
     std::map<int, MessageElement> parseJsonMessageElementRouting(json, const json&);
-    std::map<std::string, Schema> addConfiguration(json, const std::string&);
-    void listFilesRecursive(const std::filesystem::path&, std::vector<std::string>&);
 
 public:
     static CatalogFileReader& getInstance() {
@@ -40,7 +39,7 @@ public:
     }
     CatalogFileReader(CatalogFileReader const&) = delete;
     void operator=(CatalogFileReader const&) = delete;
-    void collect(const std::string&);
+    std::map<std::string, Schema> addConfiguration(const std::string&, const std::string&);
     Schema* getSchema(const std::string&);
     static std::string printMessageElementList(const std::vector<MessageElement>&);
 };

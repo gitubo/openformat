@@ -107,21 +107,21 @@
 			"name": "test",
 			"bit_length": 24,
 			"type": "unsigned integer",
-			"number_encoding": "bcd",
+			"numeric_encoding": "bcd",
 			"existing_conditions": [ { "ref_field": "/bitmap/secondary_bitmap", "condition": "eq", "ref_value": true } ]
 		},
 		{
 			"name": "processing_code",
 			"bit_length": 24,
 			"type": "unsigned integer",
-			"number_encoding": "bcd",
+			"numeric_encoding": "bcd",
 			"existing_conditions": [ { "ref_field": "/bitmap/processing_code", "condition": "eq", "ref_value": true } ]
 		},
 		{
 			"name": "STAN",
 			"bit_length": 24,
 			"type": "unsigned integer",
-			"number_encoding": "bcd"
+			"numeric_encoding": "bcd"
 		},
 		{
 			"name": "Field_41",

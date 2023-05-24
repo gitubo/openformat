@@ -1,50 +1,4 @@
 #include "CatalogFileReader.h"
-#include <fstream>
-
-void CatalogFileReader::listFilesRecursive(const std::filesystem::path& dirPath, std::vector<std::string>& filenames) {
-    for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
-        if (entry.is_regular_file()) {
-            filenames.push_back(entry.path().string());
-        }
-        else if (entry.is_directory()) {
-            listFilesRecursive(entry.path(), filenames);
-        }
-    }
-}
-
-void CatalogFileReader::collect(const std::string& catalogPath){
-    std::vector<std::string> filenames;
-    if (std::filesystem::is_directory(catalogPath)) {
-        listFilesRecursive(catalogPath, filenames);
-    }
-    for (const auto& filename_ : filenames) {
-        Logger::getInstance().log(std::string("Loading schema: ") + filename_ , Logger::Level::INFO);
-        std::string filename = catalogPath + "/" + filename_;
-
-        std::ifstream json_file(filename);
-        if (!json_file.is_open()) {
-            Logger::getInstance().log("Impossible to open file <" + filename + ">", Logger::Level::ERROR);
-            return;
-        }        
-
-        // Parsing del file JSON
-        json j;
-        try {
-            json_file >> j;
-        }
-        catch (const std::exception& e) {
-            Logger::getInstance().log(std::string("Problem during the analisys of json file: ") + filename + std::string("\n") + e.what(), Logger::Level::ERROR);
-            return;
-        }
-
-        // Chiusura del file
-        json_file.close();
-
-        std::filesystem::path thisPath = filename;
-        std::string typeName = thisPath.stem().string();
-        addConfiguration(j, typeName);
-    }
-}
 
 Schema* CatalogFileReader::getSchema(const std::string& name) {
     auto it = schemaMap.find(name);
@@ -121,6 +75,8 @@ MessageElement CatalogFileReader::parseJsonMessageElement(json json_value, const
             msgElement.setExistingConditions(parseJsonMessageElementExistingConditions(val));
         } else if(key=="visible" && val.type() == json::value_t::boolean){
             msgElement.setVisibility(val.get<bool>());
+        } else if(key=="numeric_encoding" && val.type() == json::value_t::string){
+            msgElement.setNumericEncoding(MessageElement::stringToNumericEncodingType(val.get<std::string>()));
         } else if(key=="flatten_structure" && val.type() == json::value_t::boolean){
             msgElement.setFlattenStructure(val.get<bool>());
         } else {
@@ -155,7 +111,8 @@ std::map<int, MessageElement> CatalogFileReader::parseJsonMessageElementRouting(
     return msgRouting;
 }
 
-std::map<std::string, Schema> CatalogFileReader::addConfiguration(json json_value, const std::string& name){
+std::map<std::string, Schema> CatalogFileReader::addConfiguration(const std::string& file_str, const std::string& name){
+    json json_value = json::parse(file_str);
     Schema schema;
     if(json_value.is_object()){
        for (const auto& [key, val] : json_value.items()) {
@@ -174,7 +131,7 @@ std::map<std::string, Schema> CatalogFileReader::addConfiguration(json json_valu
             } else if(key=="version" && val.type() == json::value_t::string){
                 schema.version = val.get<std::string>();
             } else {
-                Logger::getInstance().log("Unsupported type: " + std::to_string(static_cast<int>(json_value.type())) + " for element named <" + key + "> in file <" + name + ">", Logger::Level::DEBUG);
+                Logger::getInstance().log("Unsupported type: " + std::to_string(static_cast<int>(json_value.type())) + " for element named <" + key + "> in file <" + name + ">", Logger::Level::WARNING);
             }
         }
     } else {

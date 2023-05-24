@@ -32,7 +32,7 @@ RUN apk add --no-cache \
         grpc-dev 
 RUN apk add --no-cache \
         valgrind
-        
+
 WORKDIR /app
 
 RUN wget https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.zip
@@ -72,6 +72,6 @@ RUN update-ca-certificates
 RUN apk add --no-cache grpc-dev 
 WORKDIR /app
 COPY --from=development /app/catalog /catalog
-COPY --from=development /app/build/translator /app/translator
+COPY --from=development /app/build/openformat /app/openformat 
 COPY --from=development /app/build/client /app/client
-CMD ["./translator"]
+CMD ["./openformat"]

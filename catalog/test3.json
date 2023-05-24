@@ -24,31 +24,12 @@
 		{
 			"name": "message",
 			"bit_length": 32,
-			"type": "string",
-			"dependencies": [
-				{
-					"conditions": [
-						{
-							"ref_field": "field1",
-							"condition": "gt",
-							"ref_value": 5
-						}
-					],
-					"statement": {
-						"type": "error",
-						"message": "Field 2 exists only if Field 1 is greater than 5"
-					}
-				}
-			]
+			"type": "string"
 		},
 		{
 			"name": "mass",
 			"bit_length": 32,
-			"type": "integer",
-			"constraints": {
-				"minimum": 0,
-				"maximum": 30
-			}
+			"type": "integer"
 		},
 		{
 			"name": "velocity",

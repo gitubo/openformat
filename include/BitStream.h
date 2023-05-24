@@ -213,6 +213,21 @@ public:
         return this;
     }
 
+    int to_int_bcd(size_t bits = 4){
+        if(bits%4){ std::cout << "Unsupported number of bits for BCD encoding: " << bits << std::endl; }
+        int8_t value[8];
+        unsigned int mult = bits >> 2;
+        std::memcpy(value, data, mult*sizeof(int8_t));
+        int result = 0;
+        unsigned short mask_low  = 0b00001111;
+        unsigned short mask_high = 0b11110000;
+        for (int i = mult-1; i >= 0; i--) {
+            if(i%2){ result += (value[i] & mask_low) * (i*10); }
+            else { result += ((value[i] & mask_high) >> 4) * (i*10); }
+        }
+        return result;
+    }
+
     int to_int(size_t bits = 8){
         int8_t value[8];
         if(bits<=8){ bits=8; }

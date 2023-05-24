@@ -41,7 +41,7 @@
 			"type": "unsigned integer",
 			"bit_length": 8,
 			"repetitions": 4,
-			"encoding": "bcd"
+			"numeric_encoding": "bcd"
 		}
 	}
 }

@@ -8,11 +8,7 @@
 		{
 			"name": "start_of_frame",
 			"bit_length": 1,
-			"type": "unsigned integer",
-			"constraints": {
-				"minimum": 0,
-				"maximum": 0
-			}
+			"type": "unsigned integer"
 		},
 		{
 			"name": "identifier",
