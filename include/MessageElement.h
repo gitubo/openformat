@@ -131,6 +131,7 @@ public:
     }
     std::string setExtendElement(const std::string& extend_element_) {extend_element = extend_element_; return extend_element;}
     int setDelimiter(int delimiter_) { 
+        is_delimited = true;
         delimiter = delimiter_; 
         bitLength = 0;
         return delimiter; 
@@ -172,6 +173,7 @@ public:
     const std::map<int, MessageElement> getRouting() const {return routing;}
     NumericEncodingType getNumericEncoding() const {return numeric_encoding;}
 
+    const bool isDelimited() const {return is_delimited;} 
     const bool isArray() const {return is_array;} 
     const bool forceIsArray(bool is_array_) const {is_array = is_array_; return is_array;} 
 
@@ -274,6 +276,7 @@ private:
     int delimiter = 0;
     NumericEncodingType numeric_encoding = NumericEncodingType::NE_BINARY;
 
+    mutable bool is_delimited = false;
     mutable bool is_array = false;
     mutable bool is_visible = true;
     mutable bool is_flatten_structure = false;

@@ -53,58 +53,6 @@ public:
         }
     }
 
-    BitStream readFrom(int length_, int offset_) {
-        if(offset_ + length_ > length){
-            throw std::length_error("Trying to access more bits than provided: current offset is <" + 
-                                    std::to_string(offset_) + ">, bits to be consumed are <" +
-                                    std::to_string(length_) + ">, total amount of bits is <" + std::to_string(length) + ">");
-        }
-
-        int byte_offset = offset_ >> 3;
-        int bit_offset = offset_ % 8;
-        size_t num_blocks = (length_ + bit_offset + 7) >> 3;
-        unsigned char result[num_blocks];
-
-        //cut the relevant part of the stream
-        int bits_to_extract = length_;
-        for(int i = 0; i < num_blocks && bits_to_extract > 0; i++) { 
-            int bits_remaining = bits_to_extract + bit_offset > 8 ? 8 - bit_offset : bits_to_extract;
-            unsigned short mask = ((1 << bits_remaining) - 1) << (8-bits_remaining-bit_offset);
-            unsigned char extracted_bits = (data[byte_offset] & mask) >> 8-bits_remaining-bit_offset;
-            result[i] = extracted_bits;
-            bits_to_extract -= bits_remaining;
-            byte_offset++;
-            bit_offset = 0;
-        }
-
-        unsigned int alignment = (length_ + offset_) % 8;
-        if(offset_ % 8 || alignment){
-            //align all the bytes to the right (the first one is already aligned)
-            unsigned short bits_remaining = 8 - alignment;
-            unsigned short mask = ((1 << bits_remaining) - 1);
-            for(int i = num_blocks-1-1; i >= 0; i--){
-                unsigned char carry = (result[i] & mask); 
-                result[i] = result[i] >> bits_remaining;
-                result[i+1] = result[i+1] | (carry << alignment);
-            }
-        }
-
-        BitStream bt;
-        size_t real_num_blocks = (length_ + 7) >> 3;
-        if(real_num_blocks == num_blocks){
-            bt.setBitStream(result, length_, "");
-        } else {
-            //cut not needed bytes
-            unsigned char real_result[real_num_blocks];
-            for(int i = real_num_blocks-1; i >= 0; i--){
-                unsigned int index = i + (num_blocks-real_num_blocks);
-                real_result[i] = result[index];
-            }         
-            bt.setBitStream(real_result, length_, "");            
-        }
-        return bt;
-    }
-
     BitStream read(int length_) {
         if(offset + length_ > length){
             throw std::length_error("Trying to access more bits than provided: current offset is <" + 
@@ -202,6 +150,70 @@ public:
         BitStream bt(result, totalLength, "");
         return bt;
     }
+
+    BitStream* append(BitStream* b){
+        if(data==nullptr || length==0){
+            length = b->length;
+            lengthInBytes = b->lengthInBytes;
+            data = static_cast<unsigned char*>(calloc(lengthInBytes, sizeof(unsigned char)));
+            if(data==nullptr){
+                std::cerr << "ATTENZIONE errore nell'allocazione dello spazio" << std::endl;
+            }
+            memcpy(data, b->data, lengthInBytes);
+            offset = 0;
+            return this;
+        }
+
+        unsigned int totalLength = length + b->length;
+        unsigned int totalLengthInBytes = (totalLength + 7) >> 3;
+        unsigned char* result = static_cast<unsigned char*>(calloc(totalLengthInBytes, sizeof(unsigned char)));
+        if(result==nullptr){
+            std::cerr << "ATTENZIONE errore nell'allocazione dello spazio" << std::endl;
+        }
+
+        memcpy(result, data, lengthInBytes);
+
+        // Considering the possibility that the bitstream 
+        // to be appended is not a multiple of 8 bits
+        unsigned int alignment = b->length % 8;
+        unsigned char shifted[b->lengthInBytes];
+        memcpy(shifted, b->data, b->lengthInBytes);
+        if(alignment){
+            unsigned short shifting = 8 - alignment;
+            unsigned short mask = ((1 << shifting) - 1);
+            shifted[b->lengthInBytes-1] = b->data[b->lengthInBytes-1] << shifting;
+            for(int i=b->lengthInBytes-1-1; i>=0; i--){
+                unsigned char carry = (b->data[i] & mask); 
+                shifted[i+1] |= carry;
+                shifted[i] = b->data[i] << shifting;
+            }
+        }
+
+        // Considering the possibility that the destination
+        // bitstream is not a multiple of 8 bits
+        alignment = length % 8;
+        if(alignment){
+            unsigned short shifting = 8 - alignment;
+            unsigned short mask = ((1 << shifting) - 1) << alignment;
+            for(int i=totalLengthInBytes-b->lengthInBytes, index=b->lengthInBytes-1; i<totalLengthInBytes && index>=0; i++, index--){
+                result[i] |= shifted[index] >> alignment;
+                unsigned char carry = (shifted[index] << shifting) & mask; 
+                if(i<totalLengthInBytes-1){
+                    result[i+1] |= carry;
+                }
+            }
+        } else {
+            memcpy(result + lengthInBytes, shifted, b->lengthInBytes);
+        }
+
+        free(data);
+        data = result;
+        length = totalLength;
+        lengthInBytes = totalLengthInBytes;
+        offset = 0;
+        return this;
+    }
+
 
     BitStream* shift(int n) { 
         offset += n;
@@ -318,6 +330,11 @@ public:
 
     const std::string getType() const {return type;}
 
+    const std::string toBase64() {
+        if(lengthInBytes==0 || data==nullptr){ return ""; }
+        return base64_encode(data, lengthInBytes);
+    }
+
     const std::string toString() {
         std::ostringstream oss;
         for(int i = 0; i < lengthInBytes; i++){
@@ -337,7 +354,7 @@ public:
         return os;
     }
 
-    BitStream(const BitStream & source) {
+    BitStream(const BitStream& source) {
         type = source.type;
         offset = source.offset;
         length = source.length;
@@ -356,13 +373,6 @@ public:
         return remainingBits;
     }
 
-private:
-    std::string type;
-    unsigned char* data;
-    unsigned int offset;
-    unsigned int length;
-    unsigned int lengthInBytes;
-
     BitStream(){
         offset = 0;
         data = nullptr;
@@ -370,6 +380,15 @@ private:
         length = 0;
         type = "<undefined>";
     }
+
+
+private:
+    std::string type;
+    unsigned char* data;
+    unsigned int offset;
+    unsigned int length;
+    unsigned int lengthInBytes;
+
 
     void setBitStream(const unsigned char* src, size_t length_, const std::string& type_){
         if(length_==0){
@@ -393,6 +412,58 @@ private:
         memcpy(data, src, lengthInBytes);
     }
 
+
+    BitStream readFrom(int length_, int offset_) {
+        if(offset_ + length_ > length){
+            throw std::length_error("Trying to access more bits than provided: current offset is <" + 
+                                    std::to_string(offset_) + ">, bits to be consumed are <" +
+                                    std::to_string(length_) + ">, total amount of bits is <" + std::to_string(length) + ">");
+        }
+
+        int byte_offset = offset_ >> 3;
+        int bit_offset = offset_ % 8;
+        size_t num_blocks = (length_ + bit_offset + 7) >> 3;
+        unsigned char result[num_blocks];
+
+        //cut the relevant part of the stream
+        int bits_to_extract = length_;
+        for(int i = 0; i < num_blocks && bits_to_extract > 0; i++) { 
+            int bits_remaining = bits_to_extract + bit_offset > 8 ? 8 - bit_offset : bits_to_extract;
+            unsigned short mask = ((1 << bits_remaining) - 1) << (8-bits_remaining-bit_offset);
+            unsigned char extracted_bits = (data[byte_offset] & mask) >> 8-bits_remaining-bit_offset;
+            result[i] = extracted_bits;
+            bits_to_extract -= bits_remaining;
+            byte_offset++;
+            bit_offset = 0;
+        }
+
+        unsigned int alignment = (length_ + offset_) % 8;
+        if(offset_ % 8 || alignment){
+            //align all the bytes to the right (the first one is already aligned)
+            unsigned short bits_remaining = 8 - alignment;
+            unsigned short mask = ((1 << bits_remaining) - 1);
+            for(int i = num_blocks-1-1; i >= 0; i--){
+                unsigned char carry = (result[i] & mask); 
+                result[i] = result[i] >> bits_remaining;
+                result[i+1] = result[i+1] | (carry << alignment);
+            }
+        }
+
+        BitStream bt;
+        size_t real_num_blocks = (length_ + 7) >> 3;
+        if(real_num_blocks == num_blocks){
+            bt.setBitStream(result, length_, "");
+        } else {
+            //cut not needed bytes
+            unsigned char real_result[real_num_blocks];
+            for(int i = real_num_blocks-1; i >= 0; i--){
+                unsigned int index = i + (num_blocks-real_num_blocks);
+                real_result[i] = result[index];
+            }         
+            bt.setBitStream(real_result, length_, "");            
+        }
+        return bt;
+    }
     static constexpr const char base64_chars[64] = {
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
         'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',

@@ -4,12 +4,12 @@ project(myproject)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_VERBOSE_MAKEFILE OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -O2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 ")
 
 add_library(proto_service STATIC proto/cpp/service.grpc.pb.cc proto/cpp/service.pb.cc)
 add_library(nlohmann_json INTERFACE)
 
-add_executable(openformat src/CatalogFileReader.cpp src/Engine.cpp src/main.cpp)
+add_executable(openformat src/SchemaCatalog.cpp src/Engine.cpp src/main.cpp)
 
 find_package(gRPC CONFIG REQUIRED)
 

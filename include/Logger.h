@@ -14,6 +14,11 @@ class Logger {
         CRITICAL
     };
 
+    enum class Output {
+        STDOUT,
+        FILE
+    };
+
     static Logger& getInstance() {
         static Logger instance;
         return instance;
@@ -21,6 +26,10 @@ class Logger {
 
     void setLevel(Level severity_){
         severity = static_cast<unsigned int>(severity_);
+    }
+
+    void setOutput(Output output_){
+        output = static_cast<unsigned int>(output_);
     }
     
     void log(const std::string& message, Level logLevel) {
@@ -57,7 +66,14 @@ class Logger {
         }
 
         oss << message << std::endl;
-        std::cout << oss.str();
+
+        if(output==static_cast<unsigned int>(Output::FILE)){
+            std::ofstream log_file("logs", std::ios_base::app);
+            log_file << oss.str();
+            log_file.close();
+        } else {
+            std::cout << oss.str();
+        }
     }
 
 private:
@@ -65,4 +81,5 @@ private:
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;    
     unsigned int severity = static_cast<unsigned int>(Level::DEBUG);
+    unsigned int output = static_cast<unsigned int>(Output::STDOUT);
 };
