@@ -43,7 +43,6 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
     } else {
         int routingMapKey = 0;
         try{
-            //BitStream* bt;
             std::unique_ptr<BitStream> bt;
             MessageElement::MessageElementType type_ = element.getType();
             std::string name_ = parentPath;
@@ -92,8 +91,8 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
                         } else {
                             std::memcpy(bytes, &value, sizeof(int));
                         }
-//                        bt = new BitStream(bytes, element.getBitLength(), "");
                         bt = std::make_unique<BitStream>(bytes, element.getBitLength(), "");
+                        routingMapKey = value;
                         break;
                     }
                 case MessageElement::MessageElementType::MET_UNSIGNED_INTEGER:
@@ -106,9 +105,10 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
                         unsigned int numberOfBytes = element.getBitLength()+7>>3;
                         if(numberOfBytes==2){
                             unsigned char plain[sizeof(unsigned int)];
-                            std::memcpy(plain, &value, sizeof(unsigned int));
-                            bytes[0] = plain[1];
-                            bytes[1] = plain[0];
+                            std::memcpy(bytes, &value, sizeof(unsigned int));
+//                            std::memcpy(plain, &value, sizeof(unsigned int));
+//                            bytes[0] = plain[1];
+//                            bytes[1] = plain[0];
                         } else if(numberOfBytes==4) {
                             unsigned char plain[sizeof(unsigned int)];
                             std::memcpy(plain, &value, sizeof(unsigned int));
@@ -119,8 +119,8 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
                         } else {
                             std::memcpy(bytes, &value, sizeof(unsigned int));
                         }
-//                        bt = new BitStream(bytes, element.getBitLength(), "");    
                         bt = std::make_unique<BitStream>(bytes, element.getBitLength(), "");
+                        routingMapKey = static_cast<int>(value);
                         break;
                     }
                 case MessageElement::MessageElementType::MET_DECIMAL:
@@ -134,7 +134,6 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
                             unsigned char bytes[4];
                             std::memcpy(bytes1, &value, 4);
                             std::reverse_copy(bytes1, bytes1 + 4, bytes);
-//                            bt = new BitStream(bytes, element.getBitLength(), "");
                             bt = std::make_unique<BitStream>(bytes, element.getBitLength(), "");
                         } else if(element.getBitLength()==64){
                             double value = static_cast<double>(jValue.get<double>());
@@ -142,7 +141,6 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
                             unsigned char bytes[8];
                             std::memcpy(bytes1, &value, 8);
                             std::reverse_copy(bytes1, bytes1 + 8, bytes);
-//                            bt = new BitStream(bytes, element.getBitLength(), "");
                             bt = std::make_unique<BitStream>(bytes, element.getBitLength(), "");
                         } 
                         break;
@@ -154,7 +152,6 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
                         }
                         std::string value = jValue.get<std::string>();
                         const unsigned char* bytes = reinterpret_cast<const unsigned char*>(value.data());
-//                        bt = new BitStream(bytes, element.getBitLength(), "");
                         bt = std::make_unique<BitStream>(bytes, element.getBitLength(), "");
                         break;
                     }
@@ -183,11 +180,12 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
             }
             bitStream->append(bt.get());
             bitStreamMap.emplace(name_,std::move(bt));
-            
+            Logger::getInstance().log("BITSTREAM: " + bitStream->toString(), Logger::Level::DEBUG);
+                    
         } catch (const std::exception& e) {
             throw;
         }
-        /*if(element.getRouting().size()){
+        if(element.getRouting().size()){
             // There is a routing map that must be analyzed
             if(element.getRouting().count(routingMapKey)){
                 const MessageElement elementOfTheMap = element.getRouting().at(routingMapKey);
@@ -211,14 +209,14 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
                         }
                         Logger::getInstance().log("Repetitions <" + std::to_string(repetitions) + ">", Logger::Level::DEBUG);
                         for(size_t i=0; i < repetitions || repetitions==-1; i++){
-                            analizeStructure(elementOfTheMap.getStructure(), newParentPath + "/" + std::to_string(i));
+                            analizeJsonStructure(elementOfTheMap.getStructure(), newParentPath + "/" + std::to_string(i));
                             if(not bitStream->remainingBits()) break;
                         }
                     } else {
-                        analizeStructure(elementOfTheMap.getStructure(), newParentPath);            
+                        analizeJsonStructure(elementOfTheMap.getStructure(), newParentPath);            
                     }
                 } else {
-                    analizeElement(elementOfTheMap, newParentPath);            
+                    analizeJsonElement(elementOfTheMap, newParentPath);            
                 }
             } else {
                 // Routing key not found in the map
@@ -226,7 +224,7 @@ void Engine::analizeJsonElement(const MessageElement& element, const std::string
                 Logger::getInstance().log(err_message, Logger::Level::ERROR);
                 throw std::invalid_argument(err_message);            
             }
-        }*/
+        }
     }
 }
 

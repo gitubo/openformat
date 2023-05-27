@@ -153,14 +153,28 @@ public:
 
     BitStream* append(BitStream* b){
         if(data==nullptr || length==0){
-            length = b->length;
-            lengthInBytes = b->lengthInBytes;
             data = static_cast<unsigned char*>(calloc(lengthInBytes, sizeof(unsigned char)));
             if(data==nullptr){
                 std::cerr << "ATTENZIONE errore nell'allocazione dello spazio" << std::endl;
             }
-            memcpy(data, b->data, lengthInBytes);
+            unsigned int alignment = b->length % 8;
+            unsigned char shifted[b->lengthInBytes];
+            if(alignment){
+                unsigned short shifting = 8 - alignment;
+                unsigned short mask = ((1 << shifting) - 1) << alignment;
+                shifted[b->lengthInBytes-1] = b->data[b->lengthInBytes-1] << shifting;
+                for(int i=b->lengthInBytes-1-1; i>=0; i--){
+                    unsigned char carry = (b->data[i] & mask) >> alignment; 
+                    shifted[i+1] |= carry;
+                    shifted[i] = b->data[i] << shifting;
+                }
+                memcpy(data, shifted, b->lengthInBytes);
+            } else {
+                memcpy(data, b->data, b->lengthInBytes);
+            }
             offset = 0;
+            length = b->length;
+            lengthInBytes = b->lengthInBytes;
             return this;
         }
 
@@ -177,16 +191,17 @@ public:
         // to be appended is not a multiple of 8 bits
         unsigned int alignment = b->length % 8;
         unsigned char shifted[b->lengthInBytes];
-        memcpy(shifted, b->data, b->lengthInBytes);
         if(alignment){
             unsigned short shifting = 8 - alignment;
-            unsigned short mask = ((1 << shifting) - 1);
+            unsigned short mask = ((1 << shifting) - 1) << alignment;
             shifted[b->lengthInBytes-1] = b->data[b->lengthInBytes-1] << shifting;
             for(int i=b->lengthInBytes-1-1; i>=0; i--){
-                unsigned char carry = (b->data[i] & mask); 
+                unsigned char carry = (b->data[i] & mask) >> alignment; 
                 shifted[i+1] |= carry;
                 shifted[i] = b->data[i] << shifting;
             }
+        } else {
+            memcpy(shifted, b->data, b->lengthInBytes);
         }
 
         // Considering the possibility that the destination
@@ -195,18 +210,19 @@ public:
         if(alignment){
             unsigned short shifting = 8 - alignment;
             unsigned short mask = ((1 << shifting) - 1) << alignment;
-            for(int i=totalLengthInBytes-b->lengthInBytes, index=b->lengthInBytes-1; i<totalLengthInBytes && index>=0; i++, index--){
-                result[i] |= shifted[index] >> alignment;
-                unsigned char carry = (shifted[index] << shifting) & mask; 
-                if(i<totalLengthInBytes-1){
-                    result[i+1] |= carry;
-                }
+            for(int i=lengthInBytes-1, index=b->lengthInBytes-1; i<totalLengthInBytes-1 && index>=0; i++, index--){
+                result[i] |= (shifted[index] & mask) >> alignment;
+                unsigned char carry = (shifted[index] & ~mask) << shifting; 
+                result[i+1] |= carry;
             }
+            result[totalLengthInBytes-1] |= (shifted[0] & mask) >> alignment;
         } else {
             memcpy(result + lengthInBytes, shifted, b->lengthInBytes);
         }
 
-        free(data);
+        if(data!=nullptr){
+           free(data);
+        }
         data = result;
         length = totalLength;
         lengthInBytes = totalLengthInBytes;
@@ -332,7 +348,14 @@ public:
 
     const std::string toBase64() {
         if(lengthInBytes==0 || data==nullptr){ return ""; }
-        return base64_encode(data, lengthInBytes);
+        unsigned char clearData[lengthInBytes];
+        memcpy(clearData, data, lengthInBytes*sizeof(unsigned char));
+        int alignment = 8 - (length%8);
+        if(alignment){
+            unsigned char mask = ((1 << alignment) - 1);
+            clearData[lengthInBytes-1] = data[lengthInBytes-1] & ~mask;
+        }
+        return base64_encode(clearData, lengthInBytes);
     }
 
     const std::string toString() {
@@ -522,7 +545,7 @@ private:
         return static_cast<size_t>(k);
     }
 
-    static const std::string base64_encode(unsigned char*& data, size_t length) {
+    static const std::string base64_encode(unsigned char* data, size_t length) {
         std::string encoded_string;
         size_t length_ = length;
         unsigned char* data_ = data;
