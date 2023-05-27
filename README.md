@@ -8,9 +8,49 @@ With a particular focus on performance and scalability, our dissector is designe
 
 The service is able to provide a human readable message (json) starting from a stream of bit(provided as a base64-coded string) and viceversa. The mapping between the two types of serialization is provided by a configuration file (json) describing the structure of the message itself. The same configuration file is used to convert a stream of bits into a json and a json into a stream of bits.
 
+## Usage
+
+The application can be compiled and launched througth the command line or as a service (docker container)
+
+Usage: 
+  -c Provide the path to the catalog base directory (default is '../catalog')
+  -l Provide the log level (defuault is 'info')
+  -p Provide the port used by the service to communicate via gRPC (default is 50051) 
+  -d Provide the input message in the format <type>:<payload>
+
+### Command line
+
+By providing an input message throught the '-d' option, the application encode/decode just the provided message and than exits.
+
+Here an example to dissect a CAN message (standard) provided as a stream of bits encoded into a base64 string
+```sh
+./openformat -d can:AUBAIGhgL/A=
+```
+The output of the command will be:
+```json
+{"start_of_frame":0,"identifier":20,"RTR":0,"IDE":0,"Reserved":0,"DLC":2,"data":[1,3],"CRC":8576,"CRC_delimiter":1,"ACK":0,"ACK_delimiter":1,"EOF":127}
+```
+
+Using this option, the logs are stored on filesystem in a file named 'logs', this way only the final result will be provided via standard output.
+
+### gRPC service
+
+If no message is provided as argument, the application will start as a service providing a gRPC interface on the specified port.
+
+If you want to run the application as a service on port 5000, with debug log level:
+```sh
+./openformat -d debug -p 5000
+```
+
+### Docker container
+It is also possible to build a docker image and use it or use the one provided in Docker Hub:
+```sh
+docker run -d -p <my-local-port>:50051 mmoscahub/openformat:<tag>
+```
+
 ## Schema
 
-The mapping between binary and human readable message is provided by a json file named 'schema'. the collection of the needed schemas is named schema catalog and is stored into a directory in the filesystem. The schema catalog can be organized as a set of nested directory.
+The mapping between binary and human readable message is provided by a json file named 'schema'. The collection of all the schemas to be used is named 'schema catalog' and is stored into a directory in the filesystem. The schema catalog can be organized as a set of nested directory.
 
 In order to define the structure of the message, a set of field definitions must be provided. Each field has its own properties, including:
 1. the name
