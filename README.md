@@ -39,7 +39,7 @@ If no message is provided as argument, the application will start as a service p
 
 If you want to run the application as a service on port 5000, with debug log level:
 ```sh
-./openformat -d debug -p 5000
+./openformat -l debug -p 5000
 ```
 
 ### Docker container
