@@ -13,7 +13,7 @@ The service is able to provide a human readable message (json) starting from a s
 The application can be compiled and launched througth the command line or as a service (docker container)
 
 Usage: 
-  -c Provide the path to the catalog base directory (default is '../catalog')
+  -c Provide the path to the catalog base directory (default is '../catalog') 
   -l Provide the log level (defuault is 'info')
   -p Provide the port used by the service to communicate via gRPC (default is 50051) 
   -d Provide the input message in the format <type>:<payload>
